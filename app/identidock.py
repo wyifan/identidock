@@ -1,10 +1,13 @@
+# need to update pip using pip3 install --upgrade pip
 from flask import Flask, Response, request
 import requests
 import hashlib
+import redis
 
 app = Flask(__name__)
 salt = "UNIQUE_SALT"
 default_name = 'Joe Blogs'
+cache = redis.StrictRedis(host='redis', port=6379, db=0)
 
 @app.route('/hello')
 def hello_world():
@@ -36,9 +39,15 @@ def mainpage():
 
 @app.route('/monster/<name>')
 def get_identicon(name):
+	image = cache.get(name)
+	
+	if image is None:
+		print("Cache miss", flush= True)
+		r = requests.get("http://dnmonster:8080/monster/" + name + '?size=80')
+		image = r.content
 
-	r = requests.get("http://dnmonster:8080/monster/" + name + '?size=80')
-	image = r.content
+		# set to the cache
+		cache.set(name, image)
 
 	return Response(image, mimetype='image/png')
 
